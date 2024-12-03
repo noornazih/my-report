@@ -1,0 +1,74 @@
+def read_file(file_path):
+    """Reads the file as raw binary data."""
+    with open(file_path, 'rb') as file:
+        return bytearray(file.read())
+
+def write_file(file_path, data):
+    """Writes the modified binary data back to the file."""
+    with open(file_path, 'wb') as file:
+        file.write(bytes(data))
+
+def text_to_binary(text):
+    """Converts text to a binary string."""
+    return ''.join(format(ord(c), '08b') for c in text)
+
+def binary_to_text(binary):
+    """Converts a binary string back to text."""
+    binary = [binary[i:i+8] for i in range(0, len(binary), 8)]
+    return ''.join(chr(int(b, 2)) for b in binary)
+
+def embed_message(image_data, message, delimiter="11111111"):
+    """Embeds the binary message into the LSB of image data."""
+    binary_message = text_to_binary(message) + delimiter
+    index = 0
+    for i in range(len(image_data)):
+        if index < len(binary_message):
+            # Get the LSB of the byte and set it to the message bit
+            image_data[i] = (image_data[i] & 0xFE) | int(binary_message[index])
+            index += 1
+        else:
+            break
+    return image_data
+
+def extract_message(image_data, delimiter="11111111"):
+    """Extracts a binary message from the LSB of image data."""
+    binary_message = ""
+    for byte in image_data:
+        # Collect the LSB of each byte
+        binary_message += str(byte & 1)
+        if binary_message.endswith(delimiter):  # Check for the delimiter
+            break
+    return binary_to_text(binary_message[:-len(delimiter)])
+
+def main():
+    print("Welcome to the basic LSB Steganography Program!")
+    print("1. Hide a message")
+    print("2. Retrieve a message")
+    choice = input("Enter your choice (1 or 2): ")
+
+    if choice == "1":
+        # Hide a message
+        image_path = input("Enter the image file path to hide the message: ")
+        output_path = input("Enter the path to save the modified image: ")
+        message = input("Enter the secret message to hide: ")
+
+        image_data = read_file(image_path)
+        modified_data = embed_message(image_data, message)
+        write_file(output_path, modified_data)
+
+        print("Message successfully hidden in the image.")
+
+    elif choice == "2":
+        # Retrieve a message
+        image_path = input("Enter the image file path to extract the message from: ")
+
+        image_data = read_file(image_path)
+        secret_message = extract_message(image_data)
+
+        print(f"Retrieved secret message: {secret_message}")
+    
+    else:
+        print("Invalid choice. Exiting.")
+
+if __name__ == "__main__":
+    main()
