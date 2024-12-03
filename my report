@@ -1,74 +1,124 @@
-def read_file(file_path):
-    """Reads the file as raw binary data."""
-    with open(file_path, 'rb') as file:
-        return bytearray(file.read())
+def rgb_to_hex(r, g, b):
+#this function takes three inputs, (r,g,b).
+#converts the rgb values to hexadecimal.
+    return '#{:02x}{:02x}{:02x}'.format(r, g, b)
+#each {:02x} turns a value of rgb into a two-character hexadecimal string.
+#the format method is used to turn the hexa values of rgb into a hex string, combining them.
 
-def write_file(file_path, data):
-    """Writes the modified binary data back to the file."""
-    with open(file_path, 'wb') as file:
-        file.write(bytes(data))
+def hex_to_rgb(hexstring):
+#the function 'hex_to_rgb' takes a single parameter known as the hex code.
+#this function is made to convert a hexadecimal color code(e.g #ff00000) back to rgb values.
+    return tuple(int(hexstring[i:i + 2], 16) for i in (1, 3, 5))
+#tuple() is used to store all rgb values at a set.
+#i iterates over each values of (1,3,5).
+#this statement converts each given 2-char hexstring into decimal.
+
+def read_image(file_location):
+#function reads content of the image in binary mode.
+    with open(file_location, 'rb') as file:
+#opens image located in file location in read binary mode.
+        return list(file.read())
+#returns an 8-bit int value used to store and modify image to the caller which reads the raw bytes from file.
+
+def save_image(file_location, modified_image):
+#image is saved in file_location where secret text is embedded in binary data.
+    with open(file_location, 'wb') as file:
+#opens file_loaction in write binary mode as file.
+        file.write(bytes(modified_image))
+#converts image into 8-bit binary value and writes/saves data to file.
 
 def text_to_binary(text):
-    """Converts text to a binary string."""
-    return ''.join(format(ord(c), '08b') for c in text)
+#function defined to convert text to binary.
+    return ''.join(format(ord(character), '08b') for character in text)
+#for loop iterates over each character in text.
+#ord: converts each character into its ASCII value.
+#format:this function turns the integer returned by ord(character) into 8-bit binary format.
+#they are all combined by the 'join' method.
 
 def binary_to_text(binary):
-    """Converts a binary string back to text."""
-    binary = [binary[i:i+8] for i in range(0, len(binary), 8)]
-    return ''.join(chr(int(b, 2)) for b in binary)
+#function defined to convert binary to text.
+    characters = [binary[i:i + 8] for i in range(0, len(binary), 8)]
+#binary[i:i+8]: starts from index i and ends at i+8. 
+#for loop generates a sequence of [0,8,16,24,32].
+    return ''.join(chr(int(byte, 2)) for byte in characters)
+#chr():converts the int value to ASCII.
+#for loop is used to iterate over each element(byte) in the list 'characters'.
 
-def embed_message(image_data, message, delimiter="11111111"):
-    """Embeds the binary message into the LSB of image data."""
-    binary_message = text_to_binary(message) + delimiter
-    index = 0
-    for i in range(len(image_data)):
-        if index < len(binary_message):
-            # Get the LSB of the byte and set it to the message bit
-            image_data[i] = (image_data[i] & 0xFE) | int(binary_message[index])
-            index += 1
+def hide_secret_message(image_data, secret_message, delimiter="11111111"):
+    binary_message = text_to_binary(secret_message) + delimiter
+#message is converted to binary using text_to_binary function.
+#delimiter is added at the end where it helps signal where the message ends.
+    bit_position = 0 #keeps track of the binary message position.
+
+    for idx in range(len(image_data)): #iterates over each 8-bit binary value in the image_data.
+        if bit_position < len(binary_message): 
+        #if there are more bits in binary_message to hide then LSB of the byte is modified.
+            image_data[idx] = (image_data[idx] & 0xFE) | int(binary_message[bit_position])
+            #0xFE:known as a hexadecimal value that is 254 bits (11111110) all the bits are 1 except the LSB.
+            bit_position = bit_position + 1
+            #increments the bit_position by 1 to move to the next bit.
         else:
             break
     return image_data
+#once all of the bits of message are hidden, the loop breaks.
+#the function returns the modified image_data that has secret text embedded in LSB.
 
-def extract_message(image_data, delimiter="11111111"):
-    """Extracts a binary message from the LSB of image data."""
-    binary_message = ""
+def retrieve_hidden_message(image_data, delimiter="11111111"):
+#retrieves the secret messsage embedded in LSB of image_data.
+    binary_data = "" #empty strings that stores the 8-bit binary message.
     for byte in image_data:
-        # Collect the LSB of each byte
-        binary_message += str(byte & 1)
-        if binary_message.endswith(delimiter):  # Check for the delimiter
-            break
-    return binary_to_text(binary_message[:-len(delimiter)])
+        binary_data = binary_data + str(byte & 1)
+        #byte and 1 removes the LSB of current 8-bit binary.
+        if binary_data.endswith(delimiter):
+            #if binary value ends with '11111111'.
+            return binary_to_text(binary_data[:-len(delimiter)])
+        #delimiter is isolated at the end of binary_data and converts the binary value back to text.
+        #len(delimiter): calculates the length of the delimiter.
+    return ""
+#if binary_data does not end with a delimiter, function returns none.
 
-def main():
-    print("Welcome to the basic LSB Steganography Program!")
-    print("1. Hide a message")
-    print("2. Retrieve a message")
-    choice = input("Enter your choice (1 or 2): ")
+def process_hidden_message():
+#the process of hiding the image.
+    image_location = input("please input the location of the image where text will be hidden: ")
+    saved_image = input("please input the location where modified image will be saved: ")
+    secret_message = input("please enter the secret message: ")
 
-    if choice == "1":
-        # Hide a message
-        image_path = input("Enter the image file path to hide the message: ")
-        output_path = input("Enter the path to save the modified image: ")
-        message = input("Enter the secret message to hide: ")
+    try:
+        image_data = read_image(image_location)
+        #reads secret message in binary format stored in image_location.
+        modified_image = hide_secret_message(image_data, secret_message)
+        #embeds secret message.
+        save_image(saved_image, modified_image)
+        print("secret text has been saved.")
+    except Exception as error:
+        print("an error has occurred ", error)
 
-        image_data = read_file(image_path)
-        modified_data = embed_message(image_data, message)
-        write_file(output_path, modified_data)
+def process_retrieved_message():
+    #retrieves the message back to its original form.
+    image_location = input("please enter the location of the image: ")
 
-        print("Message successfully hidden in the image.")
+    try:
+        image_data = read_image(image_location)
+        hidden_message = retrieve_hidden_message(image_data)
+        if hidden_message:
+            print("The hidden message is: ", hidden_message)
+        else:
+            print("hidden message is invalid.")
+    except Exception as error:
+        print("an error has occurred", error)
 
-    elif choice == "2":
-        # Retrieve a message
-        image_path = input("Enter the image file path to extract the message from: ")
-
-        image_data = read_file(image_path)
-        secret_message = extract_message(image_data)
-
-        print(f"Retrieved secret message: {secret_message}")
+def run_program():
+    print("1. Embed a secret text in an image:")
+    print("2. Retrieve a secret text in an image:")
     
+    user_choice = input("pick either 1 or 2: ")
+
+    if user_choice == "1":
+        process_hidden_message()
+    elif user_choice == "2":
+        process_retrieved_message()
     else:
-        print("Invalid choice. Exiting.")
+        print("Invalid input, try again.")
 
 if __name__ == "__main__":
-    main()
+    run_program()
